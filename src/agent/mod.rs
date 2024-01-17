@@ -1,17 +1,17 @@
 mod config;
 
-use derive_more::{Deref, From};
-use serde::{Deserialize, Serialize};
-
 use self::config::Config;
 use crate::ais::asst::{self, ThreadId};
 use crate::ais::new_oa_client;
 use crate::ais::{asst::AsstId, OaClient};
 use crate::utils::cli::ico_check;
 use crate::utils::files::{
-    ensure_dir, load_from_json, load_from_toml, read_to_string, save_to_json,
+    bundle_to_file, ensure_dir, list_files, load_from_json, load_from_toml, read_to_string,
+    save_to_json,
 };
 use crate::Result;
+use derive_more::{Deref, From};
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -57,12 +57,13 @@ impl Agent {
         // upload instruction
         agent.upload_instructions().await?;
 
-        // upload file, TODO
+        // upload files
+        agent.upload_files(false).await?;
 
         Ok(agent)
     }
 
-    async fn upload_instructions(&self) -> Result<bool> {
+    pub async fn upload_instructions(&self) -> Result<bool> {
         let file = self.dir.join(&self.config.instructions_file);
         if file.exists() {
             let inst_content = read_to_string(&file)?;
@@ -72,6 +73,71 @@ impl Agent {
         } else {
             Ok(false)
         }
+    }
+
+    pub async fn upload_files(&self, recreate: bool) -> Result<u32> {
+        let mut num_uploaded = 0;
+
+        // the .agent/files
+        let data_files_dir = self.data_files_dir()?;
+
+        // clean the .agent/files
+        let exclude_element = format!("*{}*", &self.asst_id);
+        for file in list_files(
+            &data_files_dir,
+            Some(&["*.rs", "*.md"]),
+            Some(&[&exclude_element]),
+        )? {
+            let file_str = file.to_string_lossy();
+            // safeguard
+            if !file_str.contains(".agent") {
+                return Err(format!("Should not be deleted: '{}'", file_str).into());
+            }
+            fs::remove_file(&file)?;
+        }
+
+        // generate and upload .agent/files bundle files.
+        for bundle in self.config.file_bundles.iter() {
+            let src_dir = self.dir.join(&bundle.src_dir);
+
+            if src_dir.is_dir() {
+                let src_globs: Vec<&str> = bundle.src_globs.iter().map(AsRef::as_ref).collect();
+                let files = list_files(&src_dir, Some(&src_globs), None)?;
+
+                if !files.is_empty() {
+                    // compute bundle file name
+                    let bundle_file_name = format!(
+                        "{}-{}-bundle-{}.{}",
+                        self.name(),
+                        bundle.bundle_name,
+                        self.asst_id,
+                        bundle.dst_ext
+                    );
+                    let bundle_file = self.data_files_dir()?.join(bundle_file_name);
+
+                    // if does not exist, force reupload
+                    let force_reupload = recreate || !bundle_file.exists();
+
+                    // Rebundle not matter exist or not
+                    bundle_to_file(files, &bundle_file)?;
+
+                    // upload
+                    let (_, uploaded) = asst::upload_file_by_name(
+                        &self.oac,
+                        &self.asst_id,
+                        &bundle_file,
+                        force_reupload,
+                    )
+                    .await?;
+
+                    if uploaded {
+                        num_uploaded += 1;
+                    }
+                }
+            }
+        }
+
+        Ok(num_uploaded)
     }
 
     pub async fn load_or_create_conv(&self, recreate: bool) -> Result<Conv> {

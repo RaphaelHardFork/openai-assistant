@@ -1,10 +1,9 @@
 use crate::Result;
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use std::{
-    fs::{self, File},
-    io::{BufRead, BufReader, BufWriter, Write},
-    path::{Path, PathBuf},
-};
+use std::ffi::OsStr;
+use std::fs::{self, File};
+use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 // region:			--- File bundler
@@ -155,3 +154,24 @@ fn get_reader(file: &Path) -> Result<BufReader<File>> {
     Ok(BufReader::new(file))
 }
 // endregion:		--- File utils
+
+// region:			--- XFile
+
+/// Trait that has methods that returns
+/// the `&str` when ok, and when none or err, returns `""`
+pub trait XFile {
+    fn x_file_name(&self) -> &str;
+    fn x_extension(&self) -> &str;
+}
+
+impl XFile for Path {
+    fn x_file_name(&self) -> &str {
+        self.file_name().and_then(OsStr::to_str).unwrap_or("")
+    }
+
+    fn x_extension(&self) -> &str {
+        self.extension().and_then(OsStr::to_str).unwrap_or("")
+    }
+}
+
+// endregion:		--- XFile

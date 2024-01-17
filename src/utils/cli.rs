@@ -1,10 +1,7 @@
-use console::{style, Style, StyledObject};
-use dialoguer::{
-    theme::{self, ColorfulTheme},
-    Input,
-};
-
 use crate::Result;
+use console::{style, Style, StyledObject};
+use dialoguer::theme::{self, ColorfulTheme};
+use dialoguer::Input;
 
 // region:			--- Prompt
 
@@ -40,6 +37,12 @@ pub fn ico_deleted_ok() -> StyledObject<&'static str> {
 }
 pub fn ico_err() -> StyledObject<&'static str> {
     style("⚠").red()
+}
+pub fn ico_res() -> StyledObject<&'static str> {
+    style("֍").color256(45)
+}
+pub fn ico_res_1() -> StyledObject<&'static str> {
+    style("⏵").color256(45)
 }
 
 // endregion:		--- Icons

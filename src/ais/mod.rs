@@ -1,9 +1,8 @@
 pub mod asst;
 pub mod msg;
 
-use async_openai::{config::OpenAIConfig, Client};
-
 use crate::Result;
+use async_openai::{config::OpenAIConfig, Client};
 
 // region:			--- Client
 const ENV_OPENAI_API_KEY: &str = "OPENAI_API_KEY";
