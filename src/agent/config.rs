@@ -1,7 +1,7 @@
 use crate::ais::asst;
 use serde::Deserialize;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub(super) struct Config {
     pub name: String,
     pub model: String,
@@ -9,7 +9,7 @@ pub(super) struct Config {
     pub file_bundles: Vec<FileBundle>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub(super) struct FileBundle {
     pub bundle_name: String,
     pub src_dir: String,

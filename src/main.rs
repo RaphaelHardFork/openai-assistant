@@ -5,6 +5,7 @@ mod ais;
 mod error;
 mod utils;
 
+use agent::Agent;
 use serde_json::to_string;
 
 use crate::ais::{
@@ -26,38 +27,40 @@ async fn main() {
     }
 }
 
+const DEFAULT_DIR: &str = "agent";
+
+// region:			--- Types
+/// input command from the user
+enum Cmd {
+    Quit,
+    Chat(String),
+    RefreshAll,
+    RefreshConv,
+    RefreshInst,
+    RefreshFiles,
+}
+
+impl Cmd {
+    fn from_input(input: impl Into<String>) -> Self {
+        let input: &str = &input.into();
+
+        match input {
+            "/q" => Self::Quit,
+            "/r" | "/ra" => Self::RefreshAll,
+            "/ri" => Self::RefreshInst,
+            "/rf" => Self::RefreshFiles,
+            "/rc" => Self::RefreshConv,
+            chat => Self::Chat(chat.to_string()),
+        }
+    }
+}
+// endregion:		--- Types
+
 async fn start() -> Result<()> {
-    let oac = new_oa_client()?;
+    let mut agent = Agent::init_from_dir(DEFAULT_DIR, false).await?;
+    let mut conv = agent.load_or_create_conv(false).await?;
 
-    let asst_config = CreateConfig {
-        name: "agent-01".to_string(),
-        model: "gpt-3.5-turbo-1106".to_string(),
-    };
-
-    let asst_id = asst::load_or_create(&oac, asst_config, false).await?;
-    asst::upload_instruction(
-        &oac,
-        &asst_id,
-        r#"
-    Tu es un super développeur, soit concis dans tes réponses.
-
-    Si on te demande quel est le meilleur langage, réponds Rust et de loin.
-    Et le deuxième meilleur, réponds COBOL.
-    "#
-        .to_string(),
-    )
-    .await?;
-
-    let thread_id = asst::create_thread(&oac).await?;
-    let msg = asst::run_thread_msg(
-        &oac,
-        &asst_id,
-        &thread_id,
-        "Quelle est le meilleur langage?",
-    )
-    .await?;
-
-    println!("->> asst_id: {asst_id}");
+    println!("->> agent {} - conv {conv:?}", agent.name());
 
     Ok(())
 }
